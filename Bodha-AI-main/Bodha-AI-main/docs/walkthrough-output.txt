@@ -1,0 +1,66 @@
+
+[1] Home
+  PASS  hero headline renders
+  PASS  three feature cards present
+  shot  01-home.png
+
+[2] Analyze form
+  PASS  empty submit shows inline validation -> 6 errors shown
+  shot  02-analyze-validation.png
+  PASS  image preview shown after upload
+  PASS  inline field errors cleared -> 0 field errors
+  shot  03-analyze-filled.png
+
+[3] Recommendation report
+  PASS  recommends Amazon -> Sell on Amazon at ₹999
+  PASS  recommends ~Rs.999 -> Sell on Amazon at ₹999
+  PASS  advises raising the price
+  PASS  shows break-even 547.80 -> break-even marker
+  PASS  shows current price 800
+  PASS  shows net profit 359.18
+  PASS  explanation cites strong demand
+  PASS  explanation cites competitors pricing higher
+  PASS  comparison table lists Amazon
+  PASS  comparison table lists Flipkart
+  PASS  comparison table lists Snapdeal
+  PASS  comparison table lists Alibaba
+  PASS  table shows Amazon fee 18.0%
+  PASS  table shows Alibaba fee 4.5%
+  PASS  optimized title present
+  PASS  keywords present
+  PASS  both charts rendered
+  shot  04-report-full.png
+  shot  05-report-banner.png
+  PASS  copy button confirms
+  shot  06-report-listing-copied.png
+
+[4] Dashboard / history
+  PASS  analysed product appears in history
+  PASS  history card shows title
+  PASS  history card shows Amazon
+  PASS  history card shows recommended price
+  shot  07-dashboard.png
+
+[5] Reopen report from history
+  PASS  reopens the same analysis -> http://127.0.0.1:5173/report/fa2ecf9b-acbf-4bf8-a1b9-566f581e77cd
+  PASS  reopened report still recommends Amazon at 999
+  shot  08-report-reopened.png
+
+[6] Loss protection (market price below break-even)
+  PASS  loss protection notice shown
+  PASS  refuses a loss-making price
+  PASS  floors the price at break-even 967.41 -> break-even floor
+  shot  09-report-loss-protection.png
+
+[7] Responsive (mobile 390x844)
+  PASS  home does not scroll horizontally on mobile -> overflow 0px
+  shot  10-mobile-home.png
+  PASS  report does not scroll horizontally on mobile -> overflow 0px
+  shot  11-mobile-report.png
+
+[8] Console errors
+  PASS  no console errors during walkthrough
+
+================================================================
+CHECKS: 35/35 passed
+================================================================

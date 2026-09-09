@@ -1,0 +1,22 @@
+{
+  "name": "bodha-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bodha AI - AI-powered marketplace recommendation engine for e-commerce sellers",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "concurrently -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "test": "npm --prefix backend test",
+    "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
+    "format:check": "npm --prefix backend run format:check && npm --prefix frontend run format:check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

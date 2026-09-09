@@ -1,0 +1,177 @@
+[
+  {
+    "name": "hero headline renders",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "three feature cards present",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "empty submit shows inline validation",
+    "pass": true,
+    "detail": "6 errors shown"
+  },
+  {
+    "name": "image preview shown after upload",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "inline field errors cleared",
+    "pass": true,
+    "detail": "0 field errors"
+  },
+  {
+    "name": "recommends Amazon",
+    "pass": true,
+    "detail": "Sell on Amazon at ₹999"
+  },
+  {
+    "name": "recommends ~Rs.999",
+    "pass": true,
+    "detail": "Sell on Amazon at ₹999"
+  },
+  {
+    "name": "advises raising the price",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "shows break-even 547.80",
+    "pass": true,
+    "detail": "break-even marker"
+  },
+  {
+    "name": "shows current price 800",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "shows net profit 359.18",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "explanation cites strong demand",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "explanation cites competitors pricing higher",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "comparison table lists Amazon",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "comparison table lists Flipkart",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "comparison table lists Snapdeal",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "comparison table lists Alibaba",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "table shows Amazon fee 18.0%",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "table shows Alibaba fee 4.5%",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "optimized title present",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "keywords present",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "both charts rendered",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "copy button confirms",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "analysed product appears in history",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "history card shows title",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "history card shows Amazon",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "history card shows recommended price",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "reopens the same analysis",
+    "pass": true,
+    "detail": "http://127.0.0.1:5173/report/fa2ecf9b-acbf-4bf8-a1b9-566f581e77cd"
+  },
+  {
+    "name": "reopened report still recommends Amazon at 999",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "loss protection notice shown",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "refuses a loss-making price",
+    "pass": true,
+    "detail": ""
+  },
+  {
+    "name": "floors the price at break-even 967.41",
+    "pass": true,
+    "detail": "break-even floor"
+  },
+  {
+    "name": "home does not scroll horizontally on mobile",
+    "pass": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "report does not scroll horizontally on mobile",
+    "pass": true,
+    "detail": "overflow 0px"
+  },
+  {
+    "name": "no console errors during walkthrough",
+    "pass": true,
+    "detail": ""
+  }
+]
