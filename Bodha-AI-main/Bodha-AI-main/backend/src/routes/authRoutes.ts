@@ -60,7 +60,7 @@ authRoutes.post('/signup', (req: Request, res: Response, next: NextFunction): vo
     const token = createSession(user.id);
     req.user = user;
     res.setHeader('Set-Cookie', sessionCookie(token));
-    res.status(201).json({ user: publicUser(req) });
+    res.status(201).json({ user: publicUser(req), token });
   } catch (error) {
     next(error);
   }
@@ -80,7 +80,7 @@ authRoutes.post('/login', (req: Request, res: Response, next: NextFunction): voi
     const token = createSession(user.id);
     req.user = user;
     res.setHeader('Set-Cookie', sessionCookie(token));
-    res.json({ user: publicUser(req) });
+    res.json({ user: publicUser(req), token });
   } catch (error) {
     next(error);
   }

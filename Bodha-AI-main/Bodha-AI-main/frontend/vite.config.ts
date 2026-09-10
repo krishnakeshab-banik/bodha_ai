@@ -1,8 +1,22 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export default defineConfig({
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
+
+const rootDir = fileURLToPath(new URL('..', import.meta.url));
+
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
+  resolve: {
+    alias: {
+      '@native': path.join(rootDir, 'native'),
+      ...(mode === 'android'
+        ? { '@elevenlabs/react': path.join(rootDir, 'frontend/src/shims/elevenlabsStub.ts') }
+        : {}),
+    },
+    modules: [path.join(rootDir, 'frontend/node_modules'), path.join(rootDir, 'node_modules')],
+  },
   build: {
     rollupOptions: {
       output: {
@@ -26,4 +40,4 @@ export default defineConfig({
       },
     },
   },
-});
+}));

@@ -16,7 +16,11 @@
     "noImplicitAny": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@native/*": ["../native/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../native"]
 }

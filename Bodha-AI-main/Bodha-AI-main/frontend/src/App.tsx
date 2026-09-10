@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router-dom';
 
 import { RequireAuth } from './components/auth/RequireAuth';
 import { RequireOnboarding } from './components/auth/RequireOnboarding';
+import { BottomNav } from './components/layout/BottomNav';
 import { Footer } from './components/layout/Footer';
 import { Navbar } from './components/layout/Navbar';
 import { ScrollToTop } from './components/layout/ScrollToTop';
@@ -26,11 +27,11 @@ function SignedIn({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <div className="flex min-h-screen min-w-0 flex-col">
+    <div className="flex min-h-dvh min-w-0 flex-col">
       <ScrollToTop />
       <Navbar />
 
-      <main id="main" className="min-w-0 flex-1">
+      <main id="main" className="min-w-0 flex-1 pb-20 md:pb-0">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -73,6 +74,7 @@ export function App() {
       </main>
 
       <Footer />
+      <BottomNav />
       <VoiceAssistant />
     </div>
   );

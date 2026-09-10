@@ -4,6 +4,9 @@
  * base-URL resolution and JSON parsing stay in one place.
  */
 
+import { clearNativeSessionToken, getNativeSessionToken, saveNativeSessionToken } from '@native/session';
+import { sharePdfBlob } from '@native/share';
+
 import type {
   AnalysisResponse,
   AnalyzeRequest,
@@ -15,6 +18,7 @@ import type {
   HistoryItem,
   MetaResponse,
   VoiceQueryResponse,
+  VoiceSessionResponse,
 } from '../types';
 
 /**
@@ -40,12 +44,20 @@ export class ApiError extends Error {
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
+  const nativeToken = await getNativeSessionToken();
+  const headers = new Headers(init?.headers);
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+  if (nativeToken && !headers.has('Authorization')) {
+    headers.set('Authorization', 'Bearer ' + nativeToken);
+  }
 
   try {
     response = await fetch(API_BASE_URL + path, {
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
       ...init,
+      headers,
     });
   } catch {
     // Network-level failure: the API is unreachable rather than unhappy.
@@ -94,6 +106,7 @@ export const api = {
     const header = response.headers.get('Content-Disposition') ?? '';
     const match = header.match(/filename="([^"]+)"/);
     const filename = match?.[1] ?? 'BodhaAI_Report.pdf';
+    if (await sharePdfBlob(blob, filename)) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -114,10 +127,14 @@ export const api = {
     return request<MetaResponse>('/api/meta');
   },
 
-  askVoice(payload: {
+  getVoiceSession(): Promise<VoiceSessionResponse> {
+    return request<VoiceSessionResponse>('/api/voice/session');
+  },
+
+  askVoiceQuery(payload: {
     text: string;
-    language: 'en' | 'hi' | 'ta' | 'hinglish';
-    context?: { productId?: string; page?: string; currentReport?: unknown };
+    language: 'en' | 'hi' | 'ta';
+    context?: { productId?: string; page?: string };
   }): Promise<VoiceQueryResponse> {
     return request<VoiceQueryResponse>('/api/voice/query', {
       method: 'POST',
@@ -125,16 +142,27 @@ export const api = {
     });
   },
 
-  signup(payload: { email: string; password: string; name: string }): Promise<{ user: AuthUser }> {
-    return request('/api/auth/signup', { method: 'POST', body: JSON.stringify(payload) });
+  async signup(payload: { email: string; password: string; name: string }): Promise<{ user: AuthUser }> {
+    const result = await request<{ user: AuthUser; token?: string }>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (result.token) await saveNativeSessionToken(result.token);
+    return result;
   },
 
-  login(payload: { email: string; password: string }): Promise<{ user: AuthUser }> {
-    return request('/api/auth/login', { method: 'POST', body: JSON.stringify(payload) });
+  async login(payload: { email: string; password: string }): Promise<{ user: AuthUser }> {
+    const result = await request<{ user: AuthUser; token?: string }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (result.token) await saveNativeSessionToken(result.token);
+    return result;
   },
 
-  logout(): Promise<void> {
-    return request('/api/auth/logout', { method: 'POST' });
+  async logout(): Promise<void> {
+    await request('/api/auth/logout', { method: 'POST' });
+    await clearNativeSessionToken();
   },
 
   me(): Promise<{ user: AuthUser | null }> {

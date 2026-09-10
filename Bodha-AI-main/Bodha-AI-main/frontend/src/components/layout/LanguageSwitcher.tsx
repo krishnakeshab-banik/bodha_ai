@@ -11,7 +11,7 @@ export function LanguageSwitcher({ compact }: { compact?: boolean }) {
   const current = resolveAppLanguage(i18n.resolvedLanguage ?? i18n.language);
 
   return (
-    <label className={cx('flex items-center gap-2', compact && 'w-full')}>
+    <label className="flex min-w-0 items-center gap-2">
       <span className="sr-only">{t('common.language')}</span>
       <select
         value={current}
@@ -20,9 +20,9 @@ export function LanguageSwitcher({ compact }: { compact?: boolean }) {
         }}
         aria-label={t('common.language')}
         className={cx(
-          'rounded-sm border border-rule bg-[#faf8f3] px-2.5 py-1.5 text-sm font-medium text-ink',
+          'max-w-[9.5rem] truncate whitespace-nowrap rounded-sm border border-rule bg-[#faf8f3] px-2 py-1.5 text-sm font-medium text-ink',
           'hover:border-ink/30',
-          compact && 'w-full',
+          compact && 'w-auto max-w-[7.5rem]',
         )}
       >
         {OPTIONS.map((code) => (

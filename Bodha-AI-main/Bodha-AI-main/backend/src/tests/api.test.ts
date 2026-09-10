@@ -202,6 +202,14 @@ describe('GET /api/products/:id', () => {
   });
 });
 
+describe('GET /', () => {
+  it('returns API status instead of a 404', async () => {
+    const response = await request(app).get('/').expect(200);
+    expect(response.body.status).toBe('ok');
+    expect(response.body.health).toBe('/api/health');
+  });
+});
+
 describe('GET /api/meta', () => {
   it('lists the five seeded categories and four marketplaces', async () => {
     const response = await request(app).get('/api/meta').expect(200);
@@ -227,41 +235,178 @@ describe('POST /api/products/insight', () => {
   });
 });
 
+describe('GET /api/voice-tools/*', () => {
+  it('reads the stored report summary and price explanation without scraping', async () => {
+    const created = await agent.post('/api/products/analyze').send(validBody).expect(201);
+    const productId = created.body.productId as string;
+    const winner = created.body.platforms.find(
+      (platform: { id: string }) => platform.id === created.body.recommendedPlatform,
+    );
+
+    const summary = await request(app)
+      .get('/api/voice-tools/report-summary')
+      .query({ productId, language: 'en' })
+      .expect(200);
+
+    expect(summary.body).toEqual({
+      available: true,
+      recommendedPlatform: winner.name,
+      recommendedPrice: winner.recommendedPrice,
+      fitScore: winner.fitScore,
+    });
+
+    const price = await request(app)
+      .get('/api/voice-tools/price-explanation')
+      .query({ productId, language: 'hi' })
+      .expect(200);
+
+    expect(price.body.available).toBe(true);
+    expect(price.body.breakEvenPrice).toBe(winner.breakEvenPrice);
+    expect(price.body.marketRange).toEqual(winner.marketPriceRange);
+    expect(price.body.priceAction).toBe(winner.priceAction);
+    expect(price.body.explanation).toMatch(/माँग|लाभ|कीमत/);
+  });
+
+  it('returns a language-aware not-available payload when a section was never stored', async () => {
+    const created = await agent.post('/api/products/analyze').send(validBody).expect(201);
+    const productId = created.body.productId as string;
+
+    const competitors = await request(app)
+      .get('/api/voice-tools/competitor-analysis')
+      .query({ productId, language: 'en' })
+      .expect(200);
+    expect(competitors.body).toEqual({
+      available: false,
+      message: 'Competitor analysis is not available for this product.',
+    });
+
+    const reviews = await request(app)
+      .get('/api/voice-tools/review-sentiment')
+      .query({ productId, language: 'ta' })
+      .expect(200);
+    expect(reviews.body.available).toBe(false);
+    expect(reviews.body.message).toMatch(/விமர்சன/);
+
+    const demand = await request(app)
+      .get('/api/voice-tools/regional-demand')
+      .query({ productId, language: 'hi' })
+      .expect(200);
+    expect(demand.body.available).toBe(false);
+    expect(demand.body.message).toMatch(/माँग/);
+  });
+
+  it('returns stored competitor, review and demand sections when they exist', async () => {
+    const created = await agent.post('/api/products/analyze').send(validBody).expect(201);
+    const { updateInsights } = await import('../models/productRepository.js');
+    updateInsights(created.body.productId, {
+      language: 'en',
+      competitors: [
+        {
+          title: 'Cable Pro',
+          price: 999,
+          rating: 4.5,
+          reviewCount: 1200,
+          url: 'https://example.com/cable',
+          thumbnail: null,
+          strengths: ['4.5 rating from 1,200 reviews'],
+          weaknesses: ['Priced above the seller'],
+        },
+      ],
+      reviewSentiment: { available: true, topPraises: ['fast charge'], topComplaints: ['short cable'] },
+      regionalDemand: { available: true, states: [{ state: 'Maharashtra', interest: 88 }] },
+      platformBenefits: [],
+    });
+
+    const competitors = await request(app)
+      .get('/api/voice-tools/competitor-analysis')
+      .query({ productId: created.body.productId, language: 'en' })
+      .expect(200);
+    expect(competitors.body).toMatchObject({
+      available: true,
+      competitors: [{ title: 'Cable Pro', price: 999, rating: 4.5 }],
+    });
+
+    const reviews = await request(app)
+      .get('/api/voice-tools/review-sentiment')
+      .query({ productId: created.body.productId })
+      .expect(200);
+    expect(reviews.body).toEqual({
+      available: true,
+      topPraises: ['fast charge'],
+      topComplaints: ['short cable'],
+    });
+
+    const demand = await request(app)
+      .get('/api/voice-tools/regional-demand')
+      .query({ productId: created.body.productId })
+      .expect(200);
+    expect(demand.body).toEqual({
+      available: true,
+      topStates: [{ state: 'Maharashtra', relativeInterest: 88 }],
+    });
+  });
+
+  it('does not invent data for a missing productId', async () => {
+    const response = await request(app)
+      .get('/api/voice-tools/report-summary')
+      .query({ language: 'en' })
+      .expect(200);
+
+    expect(response.body).toEqual({
+      available: false,
+      message: 'No stored report is available for this product.',
+    });
+  });
+
+  it('returns a public agent id when no ElevenLabs API key is configured', async () => {
+    const response = await request(app).get('/api/voice/session').expect(200);
+    expect(response.body.agentId).toEqual(expect.any(String));
+    expect(response.body.agentId.startsWith('agent_')).toBe(true);
+  });
+});
+
 describe('POST /api/voice/query', () => {
   it('rejects an empty question with a 400', async () => {
-    const response = await request(app)
-      .post('/api/voice/query')
-      .send({ text: '', language: 'en' })
-      .expect(400);
-
+    const response = await request(app).post('/api/voice/query').send({ text: '', language: 'en' }).expect(400);
     expect(response.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it('answers a scoped marketplace question without calling a live LLM', async () => {
-    const created = await agent.post('/api/products/analyze').send(validBody).expect(201);
+  it('answers a site question without a live LLM', async () => {
+    const response = await request(app)
+      .post('/api/voice/query')
+      .send({ text: 'How does Bodha AI work?', language: 'en' })
+      .expect(200);
 
+    expect(response.body.source).toBe('fallback');
+    expect(response.body.language).toBe('en');
+    expect(response.body.answer).toMatch(/Bodha AI/i);
+  });
+
+  it('uses the stored report when the seller is signed in', async () => {
+    const created = await agent.post('/api/products/analyze').send(validBody).expect(201);
     const response = await agent
       .post('/api/voice/query')
       .send({
         text: 'Why did you recommend this marketplace?',
         language: 'en',
-        context: { productId: created.body.productId, page: 'report' },
+        context: { productId: created.body.productId },
       })
       .expect(200);
 
-    expect(response.body.answer).toEqual(expect.any(String));
-    expect(response.body.answer.length).toBeGreaterThan(20);
-    expect(response.body.language).toBe('en');
     expect(response.body.source).toBe('fallback');
-    expect(response.body.answer).toMatch(/fit score|40%/i);
+    expect(response.body.language).toBe('en');
+    expect(response.body.answer).toMatch(/fit|₹|Amazon|Flipkart|Snapdeal|USB/i);
   });
 
-  it('declines an off-topic question', async () => {
-    const response = await request(app)
+  it('answers an English price question in English from the latest analysis', async () => {
+    await agent.post('/api/products/analyze').send(validBody).expect(201);
+    const response = await agent
       .post('/api/voice/query')
-      .send({ text: 'What is the capital of France?', language: 'en' })
+      .send({ text: 'What price should I sell this product at?', language: 'hi' })
       .expect(200);
 
-    expect(response.body.answer).toMatch(/only help with Bodha AI/i);
+    expect(response.body.language).toBe('en');
+    expect(response.body.answer).toMatch(/₹|USB|Amazon|Flipkart|Snapdeal/i);
+    expect(response.body.answer).not.toMatch(/ब्रेक|के लिए/);
   });
 });

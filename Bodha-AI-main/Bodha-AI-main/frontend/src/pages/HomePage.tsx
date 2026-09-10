@@ -48,22 +48,22 @@ export function HomePage() {
   return (
     <>
       <section className="border-b border-rule bg-paper">
-        <div className="section-shell py-14 lg:py-20">
+        <div className="section-shell py-8 sm:py-14 lg:py-20">
           <div className="lg:grid lg:grid-cols-12">
             <div className="animate-fade-up lg:col-span-7 lg:border-r lg:border-rule lg:pr-14">
               <p className="kicker">{t('home.badge')}</p>
 
-              <h1 className="mt-5 font-display text-4xl font-medium leading-[1.12] text-ink sm:text-display">
+              <h1 className="mt-4 font-display text-[1.75rem] font-medium leading-snug tracking-normal text-ink sm:mt-5 sm:text-display">
                 {t('home.headlineBefore')}{' '}
                 <em className="not-italic text-[#0d6b4c]">{t('home.headlineAccent')}</em>{' '}
                 {t('home.headlineAfter')}
               </h1>
 
-              <p className="mt-6 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg">
+              <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-ink-muted sm:mt-6 sm:text-lg">
                 {t('home.subhead')}
               </p>
 
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row">
                 <Link
                   to="/signup"
                   className="inline-flex items-center justify-center gap-2 rounded-sm bg-[#0d6b4c] px-6 py-3.5 text-base font-medium text-white transition hover:bg-[#0a5540]"

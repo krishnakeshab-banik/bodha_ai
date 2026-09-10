@@ -4,3 +4,12 @@ dist
 backend/data
 *.log
 docs/verification.html
+android/.gradle
+android/local.properties
+android/app/build
+android/build
+android/captures
+android/.idea
+android/*.iml
+android/app/release
+android/app/debug

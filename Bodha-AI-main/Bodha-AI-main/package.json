@@ -7,16 +7,31 @@
     "node": ">=22.5.0"
   },
   "scripts": {
-    "install:all": "npm --prefix backend install && npm --prefix frontend install",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
     "dev:backend": "npm --prefix backend run dev",
     "dev:frontend": "npm --prefix frontend run dev",
     "dev": "concurrently -n api,web -c cyan,magenta \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
     "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "android:build": "npm --prefix frontend run build:android && npx cap sync android",
+    "android:open": "npm run android:build && npx cap open android",
+    "android:run": "npm run android:build && npx cap run android",
     "test": "npm --prefix backend test",
     "lint": "npm --prefix backend run lint && npm --prefix frontend run lint",
     "format:check": "npm --prefix backend run format:check && npm --prefix frontend run format:check"
   },
+  "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/camera": "^7.0.2",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.1.4",
+    "@capacitor/preferences": "^7.0.2",
+    "@capacitor/push-notifications": "^7.0.3",
+    "@capacitor/share": "^7.0.2"
+  },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@capacitor/cli": "^7.4.3",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
   }
 }

@@ -5,6 +5,8 @@
 @layer base {
   :root {
     color-scheme: light;
+    --sat: env(safe-area-inset-top, 0px);
+    --sab: env(safe-area-inset-bottom, 0px);
   }
 
   html {
@@ -16,8 +18,17 @@
     background-color: #f3efe6;
     color: #141814;
     overflow-x: clip;
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
+    word-break: normal;
     @apply font-sans antialiased;
+  }
+
+  html.native-app body {
+    font-family: system-ui, 'Roboto', 'Noto Sans', 'Noto Sans Devanagari', 'Noto Sans Tamil', sans-serif;
+  }
+
+  html.native-app .font-display {
+    letter-spacing: 0;
   }
 
   html[lang='hi'] body,
@@ -76,6 +87,10 @@
     @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
   }
 
+  .app-header {
+    padding-top: var(--sat);
+  }
+
   .label-text {
     display: block;
     margin-bottom: 0.375rem;
@@ -123,9 +138,15 @@
   .kicker {
     font-size: 11px;
     font-weight: 500;
-    letter-spacing: 0.16em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #0a5540;
+  }
+
+  @media (min-width: 640px) {
+    .kicker {
+      letter-spacing: 0.16em;
+    }
   }
 
   .grid-backdrop {

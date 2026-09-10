@@ -156,6 +156,16 @@ export function findAnalysisById(productId: string): AnalysisRecord | null {
   return row ? toAnalysisRecord(row) : null;
 }
 
+/** Most recent analysis for a seller, used when the voice panel has no report URL. */
+export function findLatestAnalysisForSeller(sellerId: string): AnalysisRecord | null {
+  if (!sellerId.trim()) return null;
+  const row = getDatabase()
+    .prepare(SELECT_FULL + ' WHERE p.sellerId = ? ORDER BY p.createdAt DESC LIMIT 1')
+    .get(sellerId) as unknown as ProductRow | undefined;
+
+  return row ? toAnalysisRecord(row) : null;
+}
+
 /** Newest-first history summary for the seller's dashboard. */
 export function listHistory(sellerId: string = DEMO_SELLER_ID, limit = 50): HistoryItem[] {
   const rows = getDatabase()

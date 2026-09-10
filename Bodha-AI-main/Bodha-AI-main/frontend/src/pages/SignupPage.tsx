@@ -33,7 +33,7 @@ export function SignupPage() {
   }
 
   return (
-    <div className="section-shell max-w-lg py-14">
+    <div className="section-shell max-w-lg py-8 sm:py-14">
       <p className="kicker">{t('auth.signupKicker')}</p>
       <h1 className="mt-2 font-display text-headline font-medium text-ink">{t('auth.signupTitle')}</h1>
       <p className="mt-3 text-sm text-ink-muted">{t('auth.signupLead')}</p>

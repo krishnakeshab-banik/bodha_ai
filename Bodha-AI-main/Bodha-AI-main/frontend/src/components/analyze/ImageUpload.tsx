@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { captureProductPhoto } from '@native/camera';
 
 import { useToast } from '../../hooks/useToast';
 import { cx } from '../../utils/format';
@@ -87,6 +88,19 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
     if (inputRef.current) inputRef.current.value = '';
   }
 
+  async function openPicker() {
+    try {
+      const nativePhoto = await captureProductPhoto();
+      if (nativePhoto) {
+        onChange(nativePhoto);
+        return;
+      }
+      inputRef.current?.click();
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Could not open the camera.', 'error');
+    }
+  }
+
   return (
     <div>
       <span className="label-text" id="product-image-label">
@@ -126,11 +140,11 @@ export function ImageUpload({ value, onChange }: ImageUploadProps) {
           tabIndex={0}
           aria-labelledby="product-image-label"
           aria-describedby="product-image-hint"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => void openPicker()}
           onKeyDown={(event) => {
             if (event.key === 'Enter' || event.key === ' ') {
               event.preventDefault();
-              inputRef.current?.click();
+              void openPicker();
             }
           }}
           onDragOver={(event) => {

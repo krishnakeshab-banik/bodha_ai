@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
 
+import { bootstrapNativeShell } from '@native/bootstrap';
+
 import { App } from './App';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { AuthProvider } from './hooks/useAuth';
@@ -35,12 +37,23 @@ if (!container) {
   throw new Error('Root container #root not found');
 }
 
+const capacitor = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+if (capacitor?.isNativePlatform?.()) {
+  document.documentElement.classList.add('native-app');
+}
+
 lockPageChrome();
+void bootstrapNativeShell();
 
 createRoot(container).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <AuthProvider>
           <ToastProvider>
             <App />

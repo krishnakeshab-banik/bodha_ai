@@ -49,7 +49,8 @@ function readBoolean(key: string, fallback: boolean): boolean {
 
 export const env = {
   port: readNumber('PORT', 4000),
-  corsOrigins: (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+  corsOrigins: (process.env.CORS_ORIGIN ??
+    'http://localhost:5173,http://localhost:4000,https://localhost,capacitor://localhost')
     .split(',')
     .map((origin) => origin.trim())
     .filter(Boolean),
@@ -59,9 +60,13 @@ export const env = {
   /** Empty in the demo - the rule-based listing optimizer is used instead. */
   llmApiKey: process.env.LLM_API_KEY ?? '',
   llmModel: process.env.LLM_MODEL ?? 'claude-sonnet-5',
-  /** Gemini powers the voice agent and language-aware listing copy when set. */
+  /** Gemini powers language-aware listing copy when set. */
   geminiApiKey: process.env.GEMINI_API_KEY || process.env.LLM_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash',
+  /** Used only server-side to mint ElevenLabs conversation tokens / signed URLs. */
+  elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? '',
+  elevenLabsAgentId: process.env.ELEVENLABS_AGENT_ID ?? 'agent_3301m2486d2qecasbeht51m4ef4t',
+  elevenLabsBranchId: process.env.ELEVENLABS_BRANCH_ID ?? 'agtbrch_7501m2486ek8erka0cw0dy0y87d2',
   /** How long a scrape is reused before we hit the marketplace again. */
   cacheTtlHours: readNumber('CACHE_TTL_HOURS', 3),
   scrapeTimeoutMs: readNumber('SCRAPE_TIMEOUT_MS', 25000),

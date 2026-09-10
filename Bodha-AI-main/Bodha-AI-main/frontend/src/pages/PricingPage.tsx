@@ -86,7 +86,7 @@ export function PricingPage() {
   }
 
   return (
-    <div className="section-shell py-14">
+    <div className="section-shell py-8 sm:py-14">
       <p className="kicker">{t('billing.kicker')}</p>
       <h1 className="mt-2 max-w-2xl font-display text-headline font-medium text-ink">
         {t('billing.title')}

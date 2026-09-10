@@ -143,6 +143,13 @@ export interface MetaResponse {
   platforms: PlatformMeta[];
 }
 
+export interface VoiceSessionResponse {
+  agentId: string;
+  branchId?: string;
+  conversationToken?: string;
+  signedUrl?: string;
+}
+
 export interface VoiceQueryResponse {
   answer: string;
   language: 'en' | 'hi' | 'ta' | 'hinglish';

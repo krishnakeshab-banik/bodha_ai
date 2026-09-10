@@ -9,8 +9,8 @@ export function Footer() {
   const { user } = useAuth();
 
   return (
-    <footer className="mt-20 border-t border-rule bg-paper">
-      <div className="section-shell flex flex-col gap-8 py-10 md:flex-row md:items-start md:justify-between">
+    <footer className="mt-10 border-t border-rule bg-paper pb-4 md:mt-20 md:pb-0">
+      <div className="section-shell flex flex-col gap-8 py-8 md:flex-row md:items-start md:justify-between md:py-10">
         <div className="max-w-sm space-y-3">
           <div className="flex items-center gap-2.5">
             <Logo className="h-8 w-8" />

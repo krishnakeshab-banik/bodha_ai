@@ -254,6 +254,107 @@ The full stored analysis, same shape as the POST response.
 - `GET /api/health` — status, listing optimizer, cache size and TTL
 - `DELETE /api/cache` — drop cached listings so the next analyze is forced live
 - `GET /api/meta` — categories and platforms that populate the form controls
+- `GET /api/voice/session` — ElevenLabs conversation token / signed URL for the existing agent (needs `ELEVENLABS_API_KEY` for a private agent; otherwise returns the public Agent ID)
+
+### Voice agent server tools (`GET /api/voice-tools/*`)
+
+The floating mic talks to the **existing** ElevenLabs Conversational AI agent
+(`agent_3301m2486d2qecasbeht51m4ef4t`, branch `agtbrch_7501m2486ek8erka0cw0dy0y87d2`).
+Do not create a second agent. The agent calls these webhooks to read the
+**already-stored** analysis for `productId` — they never re-scrape or re-price.
+
+All five accept `productId` and `language` (`en` | `hi` | `ta`) as query
+parameters. Human-readable fields (explanations, SWOT) are rebuilt in the
+requested language from the stored numbers. If that section was never saved,
+the response is `{ available: false, message }` — never invented figures.
+
+| Endpoint | Response when data exists |
+|---|---|
+| `GET /api/voice-tools/report-summary?productId=&language=` | `{ available, recommendedPlatform, recommendedPrice, fitScore }` |
+| `GET /api/voice-tools/price-explanation?productId=&language=` | `{ available, breakEvenPrice, marketRange: [min, max], priceAction, explanation }` |
+| `GET /api/voice-tools/competitor-analysis?productId=&language=` | `{ available, competitors: [{ title, price, rating, strengths, weaknesses }] }` |
+| `GET /api/voice-tools/review-sentiment?productId=&language=` | `{ available, topPraises, topComplaints }` |
+| `GET /api/voice-tools/regional-demand?productId=&language=` | `{ available, topStates: [{ state, relativeInterest }] }` |
+
+The website starts a bare WebSocket session (agent id only). It does not use
+LiveKit, language overrides, or `productId` at connect — those were hanging
+the room up right after the intro.
+
+If ElevenLabs returns `quota_exceeded` or otherwise fails to start, the mic
+falls back to `POST /api/voice/query` (Gemini when `GEMINI_API_KEY` is set,
+otherwise a rule-based reply) plus the browser’s speech APIs.
+
+#### Manual ElevenLabs dashboard steps (this agent, cannot be done from code)
+
+Checked against the live agent JSON. These settings are why the call greets
+and then hangs up, even for “hello”:
+
+1. **Client events (fixes the immediate disconnect)** — Conversation →
+   Client events must include at least:
+   `conversation_initiation_metadata`, `ping`, `audio`, `interruption`,
+   `user_transcript`, `agent_response`, `agent_response_correction`.
+   Right now `ping` and `conversation_initiation_metadata` are missing. The
+   LiveKit room then connects, publishes the mic, and the signal stream dies.
+2. **Turn off `end_call` until tools exist** — Built-in `end_call` is enabled
+   with an empty description. The prompt says “always use tools” but
+   `tool_ids` is `[]`, so the only tools the model can call are
+   `end_call` and `language_detection`. After the intro it often hangs up.
+   Disable `end_call`, or describe it as “only when the seller says goodbye.”
+3. **Attach the five Server Tools** and put their IDs in `tool_ids`. Point
+   each URL at a **public** API host (`localhost:4000` is invisible to
+   ElevenLabs). Bind query params `productId` and `language`.
+4. **Dynamic variables** — add placeholders `productId` and `language`. They
+   are currently `{}`. Until that is done, the client must not send them at
+   start (unknown variables abort the session).
+5. **Tamil** — only a Hindi language preset exists. Add a `ta` preset before
+   expecting Tamil voice replies.
+6. **`ELEVENLABS_API_KEY`** — `backend/.env` only, if the agent is later
+   made private.
+7. **System prompt** — replace the agent prompt with the block below. Also
+   set the `end_call` tool description to: “End the call only when the seller
+   clearly says goodbye, thanks you and is done, or asks to hang up. Never
+   call this after the greeting, and never because a data tool is missing.”
+
+```
+# Personality
+You are Bodha AI’s voice assistant for Indian e-commerce sellers. You sound like a calm, sharp colleague: warm, brief, and precise. You know Amazon, Flipkart, Snapdeal, and Bodha AI’s reports. You are not a salesperson.
+
+# Environment
+This is a live voice call inside the Bodha AI app. The seller may be on Home (no product) or on a Recommendation Report.
+- If a productId is available (dynamic variable or they named a product), you may look up that stored report.
+- If there is no productId, you can still talk: explain how Bodha AI works, and ask which product they mean before quoting any numbers.
+
+# Language
+Reply in the seller’s language: English, Hindi, or Tamil. If they mix (Hinglish), follow their mix. Keep answers short enough to speak aloud (usually 2–5 sentences).
+
+# What you can talk about without tools
+You do not need tools for general help. Answer directly:
+- What Bodha AI does (where to sell, what to charge, listing copy)
+- How to analyse a product, history, languages, 6 free analyses / Pro
+- What fit score, break-even, and loss protection mean in plain words
+- Small talk and “hello” — greet them and wait. Do not hang up.
+
+# What requires tools
+Only when they ask for *their* numbers (recommended platform, price, profit, competitors, reviews, demand) and you have a productId:
+1. Call the matching tool first.
+2. Speak only the returned figures.
+3. If the tool says available=false, say that section is not in this report. Do not invent a number.
+
+Tools:
+- get_report_summary — recommended platform, recommended price, fit score
+- get_price_explanation — break-even, market range, increase/decrease/hold, explanation
+- get_competitor_analysis — competitor titles, prices, ratings, strengths, weaknesses
+- get_review_sentiment — top praises and complaints
+- get_regional_demand — top states and relative interest
+
+If those tools are not attached, or the call fails, say you cannot load the stored report right now and offer a general explanation instead. Never call end_call for that.
+
+# Rules
+- Never invent prices, fit scores, competitors, or review themes.
+- Stay on Bodha AI and this seller’s report. For off-topic questions, say you can only help with their analysis or the app, then ask what they want to know.
+- Do not give generic business advice or market predictions that are not in the report.
+- Do not end the call after the first message, after silence, or because you lack a tool. End only if they say goodbye or ask to stop.
+```
 
 ---
 
@@ -263,7 +364,7 @@ The full stored analysis, same shape as the POST response.
 npm test
 ```
 
-**35 unit/API tests passing** (plus 3 live-scrape tests skipped unless `LIVE_SCRAPE=1`).
+**63 unit/API tests passing** (plus 3 live-scrape tests skipped unless `LIVE_SCRAPE=1`).
 
 The three cases required by the brief are grouped under
 `Section 2.4 - required worked examples`:

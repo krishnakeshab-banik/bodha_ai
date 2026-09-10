@@ -15,6 +15,7 @@ import { authRoutes } from './routes/authRoutes.js';
 import { billingRoutes } from './routes/billingRoutes.js';
 import { productRoutes } from './routes/productRoutes.js';
 import { voiceRoutes } from './routes/voiceRoutes.js';
+import { voiceToolRoutes } from './routes/voiceToolRoutes.js';
 import { cacheEntryCount, clearCache } from './services/cacheService.js';
 import { isUsingMockOptimizer } from './services/listingOptimizer.js';
 import { HttpError } from './utils/httpError.js';
@@ -34,6 +35,15 @@ export function createApp(): express.Express {
     }),
   );
   app.use(attachUser);
+
+  app.get('/', (_req: Request, res: Response) => {
+    res.json({
+      name: 'Bodha AI',
+      status: 'ok',
+      app: 'http://localhost:5173',
+      health: '/api/health',
+    });
+  });
 
   app.get('/api/health', (_req: Request, res: Response) => {
     res.json({
@@ -73,6 +83,7 @@ export function createApp(): express.Express {
   app.use('/api/billing', billingRoutes);
   app.use('/api/products', productRoutes);
   app.use('/api/voice', voiceRoutes);
+  app.use('/api/voice-tools', voiceToolRoutes);
 
   app.use((req: Request, res: Response) => {
     res
