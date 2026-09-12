@@ -38,6 +38,7 @@ export class SnapdealScraper implements MarketplaceScraper {
     const { url, pathWithQuery } = buildSearchUrl(query);
 
     await runSearchPage({
+      platformId: 'snapdeal',
       platformName: 'Snapdeal',
       origin: ORIGIN,
       url,

@@ -15,8 +15,14 @@ export type IndexLevel = 'Low' | 'Medium' | 'High';
 
 export type PriceAction = 'increase' | 'decrease' | 'hold';
 
-/** Whether a platform's market numbers came from a live scrape or the cache. */
-export type DataFreshness = 'live' | 'cached' | 'unavailable';
+/** Whether a platform's market numbers came from a live scrape, Gemini, or the cache. */
+export type DataFreshness = 'live' | 'cached' | 'gemini' | 'unavailable';
+
+/** Same values as DataFreshness — explicit source tag for the API/UI. */
+export type DataSource = DataFreshness;
+
+/** Why the live scrape finished the way it did. Distinct from dataSource. */
+export type ScrapeStatus = 'OK' | 'BLOCKED' | 'TIMEOUT' | 'NOT_FOUND';
 
 /** UI and AI-generation language. All three are left-to-right. */
 export type UiLanguage = 'en' | 'hi' | 'ta';
@@ -41,8 +47,8 @@ export interface PlatformConfig {
 export interface ComparableListing {
   title: string;
   price: number;
-  rating?: number;
-  reviewCount?: number;
+  rating?: number | null;
+  reviewCount?: number | null;
   /** Proxy for competition, where the page exposes it. */
   sellerCount?: number;
   url: string;
@@ -65,6 +71,9 @@ export interface MarketSnapshot {
   /** 0-100, higher means more sellers fighting over the same buyers. */
   competitionIndex: number;
   dataFreshness: DataFreshness;
+  dataSource?: DataSource;
+  scrapeStatus?: ScrapeStatus | null;
+  blockedSignal?: string | null;
   lastUpdated: string | null;
   listingCount: number;
   unavailable: boolean;
@@ -105,6 +114,14 @@ export interface PlatformRecommendation {
   /** False when cost or selling price was missing — never treat ₹0 as a real profit. */
   profitAvailable: boolean;
   profitError: string | null;
+  /**
+   * What estimatedProfit is computed from.
+   * `seller-fees` = currentPrice − (currentPrice × effectiveFee) − shipping − cost
+   *   (no live/cached/Gemini market data). Used when the platform is unavailable.
+   * `market-and-fees` = the same seller-fees formula; market listings only
+   *   affect the recommended price, not this figure.
+   */
+  profitBasis?: 'seller-fees' | 'market-and-fees';
   competitionIndex: number;
   demandIndex: number;
   competition: IndexLevel;
@@ -116,8 +133,13 @@ export interface PlatformRecommendation {
   lossRiskAvoided: boolean;
   unavailable: boolean;
   dataFreshness: DataFreshness;
+  dataSource?: DataSource;
+  scrapeStatus?: ScrapeStatus | null;
+  blockedSignal?: string | null;
   lastUpdated: string | null;
   listingCount: number;
+  /** How much to trust this platform's recommendation, from this run's listings. */
+  confidence?: DataConfidence;
 }
 
 export interface PricingResult {
@@ -153,9 +175,38 @@ export interface RegionalInterest {
   interest: number;
 }
 
+export type TitleMatchQuality = 'exact' | 'close' | 'category';
+
+/** Per-platform trust in the recommendation, from this run's real listings. */
+export interface DataConfidence {
+  level: IndexLevel;
+  listingCount: number;
+  titleMatch: TitleMatchQuality;
+  freshness: DataFreshness;
+}
+
+export interface TrendPoint {
+  time: string;
+  label: string;
+  interest: number;
+  month: number;
+  year: number;
+}
+
+/** 12-month Trends series verdict. peakMonth is 0–11 when a spike is real. */
+export interface SeasonalTiming {
+  available: boolean;
+  patternDetected: boolean;
+  peakMonth: number | null;
+  peakInterest: number | null;
+  medianInterest: number | null;
+  pointCount: number;
+}
+
 export interface RegionalDemand {
   available: boolean;
   states: RegionalInterest[];
+  seasonalTiming?: SeasonalTiming;
 }
 
 export interface ReportInsights {

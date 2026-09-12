@@ -300,6 +300,48 @@ describe('analyzePricing input guards', () => {
     expect(amazon.estimatedProfit).toBeCloseTo(170.08, 2);
     expect(amazon.explanation).toMatch(/estimated profit/i);
   });
+
+  it('computes profit from seller cost/price and static fees when market data is unavailable', () => {
+    const input: PricingInput = {
+      manufacturingCost: 350,
+      currentPrice: 1000,
+      category: 'electronics-accessories',
+      selectedPlatforms: ['amazon', 'flipkart', 'snapdeal'],
+    };
+    const empty = {
+      comparablePrices: [],
+      demandIndex: 0,
+      competitionIndex: 0,
+      dataFreshness: 'unavailable' as const,
+      lastUpdated: null,
+      listingCount: 0,
+      unavailable: true,
+    };
+
+    const result = analyzePricing(input, {
+      amazon: empty,
+      flipkart: empty,
+      snapdeal: empty,
+    });
+
+    const amazon = result.platforms.find((platform) => platform.id === 'amazon');
+    const flipkart = result.platforms.find((platform) => platform.id === 'flipkart');
+    const snapdeal = result.platforms.find((platform) => platform.id === 'snapdeal');
+
+    expect(amazon?.unavailable).toBe(true);
+    expect(flipkart?.unavailable).toBe(true);
+    expect(snapdeal?.unavailable).toBe(true);
+
+    // currentPrice − (currentPrice × fee × 1.18) − shipping − cost
+    // Amazon 18% + ₹60 → 377.60; Flipkart 15% + ₹50 → 423.00; Snapdeal 10% + ₹45 → 487.00
+    expect(amazon?.estimatedProfit).toBeCloseTo(377.6, 2);
+    expect(flipkart?.estimatedProfit).toBeCloseTo(423, 2);
+    expect(snapdeal?.estimatedProfit).toBeCloseTo(487, 2);
+    expect(amazon?.profitAvailable).toBe(true);
+    expect(amazon?.profitBasis).toBe('seller-fees');
+    expect(flipkart?.profitBasis).toBe('seller-fees');
+    expect(snapdeal?.profitBasis).toBe('seller-fees');
+  });
 });
 
 describe('Sony WH-1000XM5 — seller price and matched-product market', () => {

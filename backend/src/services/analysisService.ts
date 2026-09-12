@@ -29,6 +29,7 @@ import { filterRelevantListings } from './listingRelevance.js';
 import { getCachedListings, getMarketData } from './marketplaceDataProvider.js';
 import { optimizeListing } from './listingOptimizer.js';
 import { analyzePricing } from './pricingEngine.js';
+import { attachConfidenceScores } from './confidenceScore.js';
 import { fetchRegionalDemand } from './regionalDemandService.js';
 import { analyzeReviewSentiment, collectReviewSnippets } from './reviewSentiment.js';
 import { hasLiveScraper, scrapeComparableListings } from './scraper/scraperService.js';
@@ -67,7 +68,11 @@ export async function createAnalysis(
     market.snapshots,
   );
 
-  const platforms = localizePlatformExplanations(pricing.platforms, language, request.currentPrice);
+  const platforms = attachConfidenceScores(
+    localizePlatformExplanations(pricing.platforms, language, request.currentPrice),
+    request.title,
+    market.listings,
+  );
 
   const winner =
     platforms.find((platform) => platform.id === pricing.recommendedPlatform) ?? platforms[0];
@@ -124,12 +129,32 @@ async function buildInsights(input: {
   const resolved = await resolveCompetitorListings(input);
   const top = rankCompetitors(resolved.listings, 5);
 
-  const [snippets, regionalDemand] = await Promise.all([
-    collectReviewSnippets(resolved.platformId, top),
+  const platformsForReviews = input.selectedPlatforms.length
+    ? input.selectedPlatforms
+    : [resolved.platformId];
+
+  const [snippetGroups, regionalDemand] = await Promise.all([
+    Promise.all(
+      platformsForReviews.map((platformId) => {
+        const matched = matchListings(
+          input.listingsByPlatform?.[platformId] ?? [],
+          input.title,
+          input.currentPrice,
+        );
+        const listings =
+          matched.length > 0
+            ? matched
+            : platformId === resolved.platformId
+              ? resolved.listings
+              : [];
+        return collectReviewSnippets(platformId, listings);
+      }),
+    ),
     fetchRegionalDemand(input.title, input.category),
   ]);
 
   const fromCards = top.flatMap((listing) => listing.reviewSnippets ?? []);
+  const snippets = snippetGroups.flat();
   const reviewSentiment = await analyzeReviewSentiment([...snippets, ...fromCards], input.language);
   const competitors = await describeCompetitors(top, reviewSentiment, input.language, {
     sellerPrice: input.currentPrice,

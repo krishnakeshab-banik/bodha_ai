@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
+import { ConfidenceBadge } from './ConfidenceBadge';
 import { LossProtectionBadge } from './LossProtectionNotice';
 import { DataFreshnessBadge } from './DataFreshnessBadge';
 import type { PlatformId, PlatformRecommendation } from '../../types';
@@ -91,7 +92,11 @@ export function PlatformComparison({
               const unavailable = platform.unavailable === true;
 
               return (
-                <tr key={platform.id} className={unavailable ? 'text-ink-muted/70' : undefined}>
+                <tr
+                  key={platform.id}
+                  data-platform-id={platform.id}
+                  className={unavailable ? 'text-ink-muted/70' : undefined}
+                >
                   <th scope="row" className="px-4 py-3.5 font-medium text-ink">
                     <span className="flex items-center gap-2.5">
                       <span
@@ -113,21 +118,28 @@ export function PlatformComparison({
                         )}
                         <span className="mt-1.5 block">
                           <DataFreshnessBadge
-                            freshness={platform.dataFreshness ?? 'unavailable'}
+                            freshness={platform.dataSource ?? platform.dataFreshness ?? 'unavailable'}
                             lastUpdated={platform.lastUpdated}
+                            platformName={platform.name}
+                            scrapeStatus={platform.scrapeStatus}
                             compact
                           />
                         </span>
+                        {platform.confidence && (
+                          <span className="mt-1.5 block">
+                            <ConfidenceBadge confidence={platform.confidence} compact />
+                          </span>
+                        )}
                       </span>
                     </span>
                   </th>
                   {unavailable ? (
                     <td colSpan={8} className="px-4 py-3.5 text-sm text-ink-muted">
-                      <p>{t('report.marketDataMissing')}</p>
+                      <p>{t('report.statusUnavailable', { name: platform.name })}</p>
                       <p className="mt-1">
                         {platform.profitAvailable === false
                           ? t('report.profitMissing')
-                          : t('report.profitUnit') +
+                          : t('report.profitAtYourPriceFees') +
                             ' ' +
                             formatCurrencyPrecise(platform.estimatedProfit)}
                       </p>
@@ -258,6 +270,7 @@ function PlatformCard({
 
   return (
     <article
+      data-platform-id={platform.id}
       className={cx(
         'border-t border-rule py-5',
         isWinner && !unavailable && 'border-t-2 border-t-brand-600',
@@ -279,20 +292,25 @@ function PlatformCard({
         )}
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 space-y-2">
         <DataFreshnessBadge
-          freshness={platform.dataFreshness ?? 'unavailable'}
+          freshness={platform.dataSource ?? platform.dataFreshness ?? 'unavailable'}
           lastUpdated={platform.lastUpdated}
+          platformName={platform.name}
+          scrapeStatus={platform.scrapeStatus}
         />
+        {platform.confidence && <ConfidenceBadge confidence={platform.confidence} />}
       </div>
 
       {unavailable ? (
         <div className="mt-4 text-sm leading-relaxed text-ink-muted">
-          <p>{t('report.marketDataMissing')}</p>
+          <p>{t('report.statusUnavailable', { name: platform.name })}</p>
           <p className="mt-2 text-ink">
             {platform.profitAvailable === false
               ? t('report.profitMissing')
-              : t('report.profitUnit') + ' ' + formatCurrencyPrecise(platform.estimatedProfit)}
+              : t('report.profitAtYourPriceFees') +
+                ' ' +
+                formatCurrencyPrecise(platform.estimatedProfit)}
           </p>
         </div>
       ) : (

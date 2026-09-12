@@ -125,9 +125,8 @@ Analyze form  →  services/api.ts  →  POST /api/products/analyze
                                  zod validation (400 on failure)
                                           ▼
                     marketplaceDataProvider.getMarketData()
-                        fresh cache (< 3h)      → use it            (freshness: cached)
-                        else Playwright scrape  → Amazon/Flipkart/Snapdeal (live)
-                        scrape fails            → stale cache, else "unavailable"
+                        Playwright scrape first → Amazon/Flipkart/Snapdeal (live)
+                        scrape fails            → cache, else "unavailable"
                                           ▼
                     pricingEngine.analyzePricing(snapshots)          ← PURE
                         break-even floor · fit score · ranking · price advice

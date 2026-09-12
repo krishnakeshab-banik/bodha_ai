@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
-import type { RegionalDemand, ReviewSentiment } from '../../types';
+import type { RegionalDemand, ReviewSentiment, SeasonalTiming } from '../../types';
 
 interface ReviewDemandPanelProps {
   sentiment: ReviewSentiment;
@@ -8,7 +8,8 @@ interface ReviewDemandPanelProps {
 }
 
 export function ReviewDemandPanel({ sentiment, demand }: ReviewDemandPanelProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const timing = demand.seasonalTiming;
 
   return (
     <div className="space-y-10">
@@ -60,7 +61,52 @@ export function ReviewDemandPanel({ sentiment, demand }: ReviewDemandPanelProps)
           </p>
         )}
       </section>
+
+      <SeasonalTimingSection timing={timing} language={i18n.resolvedLanguage ?? i18n.language} />
     </div>
+  );
+}
+
+function SeasonalTimingSection({
+  timing,
+  language,
+}: {
+  timing: SeasonalTiming | undefined;
+  language: string;
+}) {
+  const { t } = useTranslation();
+  const locale = language.startsWith('hi') ? 'hi-IN' : language.startsWith('ta') ? 'ta-IN' : 'en-IN';
+
+  let body = t('report.timingEmpty');
+  if (timing?.available && timing.patternDetected && timing.peakMonth !== null) {
+    const period = new Date(Date.UTC(2020, timing.peakMonth, 1)).toLocaleString(locale, {
+      month: 'long',
+      timeZone: 'UTC',
+    });
+    body = t('report.timingSpike', { period });
+  } else if (timing?.available) {
+    body = t('report.timingNoPattern');
+  }
+
+  return (
+    <section aria-labelledby="timing-heading">
+      <h2 id="timing-heading" className="font-display text-title font-medium text-ink">
+        {t('report.timingTitle')}
+      </h2>
+      <p className="mt-2 text-sm text-ink-muted">{t('report.timingLead')}</p>
+      <p
+        className={
+          timing?.available && timing.patternDetected
+            ? 'mt-6 border-t border-rule pt-4 text-sm text-ink'
+            : 'mt-6 border-t border-rule pt-4 text-sm text-ink-muted'
+        }
+        data-testid="seasonal-timing"
+        data-timing-available={timing?.available ? 'true' : 'false'}
+        data-timing-pattern={timing?.patternDetected ? 'true' : 'false'}
+      >
+        {body}
+      </p>
+    </section>
   );
 }
 

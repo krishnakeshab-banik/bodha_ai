@@ -240,7 +240,7 @@ function MarketplaceMatchCard({
       </p>
       {unavailable ? (
         <p className="mt-1 text-xs leading-relaxed text-ink-muted">
-          {t('report.marketDataMissing')}
+          {t('report.statusUnavailable', { name: platform.name })}
         </p>
       ) : (
         <ul className="mt-1 space-y-1 text-xs text-ink-muted">

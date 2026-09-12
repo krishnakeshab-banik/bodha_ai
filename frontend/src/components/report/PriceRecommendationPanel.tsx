@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
+import { ConfidenceBadge } from './ConfidenceBadge';
 import { DataFreshnessBadge } from './DataFreshnessBadge';
 import { LossProtectionNotice } from './LossProtectionNotice';
 import type { PlatformRecommendation } from '../../types';
@@ -38,8 +39,13 @@ export function PriceRecommendationPanel({
           {t('report.priceTitle')}
         </h2>
         <p className="mt-4 text-sm leading-relaxed text-ink-muted">
-          {t('report.priceUnavailable', { name: platform.name })}
+          {t('report.statusUnavailable', { name: platform.name })}
         </p>
+        {platform.profitAvailable !== false && (
+          <p className="mt-3 text-sm text-ink">
+            {t('report.profitAtYourPriceFees')} {formatCurrencyPrecise(platform.estimatedProfit)}
+          </p>
+        )}
       </section>
     );
   }
@@ -113,11 +119,14 @@ export function PriceRecommendationPanel({
         <p className={cx('kicker', ACTION_STYLES[priceAction])}>{actionLabels[priceAction]}</p>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 space-y-2">
         <DataFreshnessBadge
-          freshness={platform.dataFreshness ?? 'live'}
+          freshness={platform.dataSource ?? platform.dataFreshness ?? 'live'}
           lastUpdated={platform.lastUpdated}
+          platformName={platform.name}
+          scrapeStatus={platform.scrapeStatus}
         />
+        {platform.confidence && <ConfidenceBadge confidence={platform.confidence} />}
       </div>
 
       <div className="mt-6 grid grid-cols-3 gap-3">

@@ -26,12 +26,21 @@
  *   expose `sellerCount` we blend 50/50 with normalize(avg sellerCount, cap 40).
  */
 
-import type { ComparableListing, DataFreshness, MarketSnapshot } from '../types/index.js';
+import type {
+  ComparableListing,
+  DataFreshness,
+  DataSource,
+  MarketSnapshot,
+  ScrapeStatus,
+} from '../types/index.js';
 import { filterRelevantListings } from './listingRelevance.js';
 
 export interface SnapshotFromListingsOptions {
   queryTitle?: string;
   anchorPrice?: number;
+  dataSource?: DataSource;
+  scrapeStatus?: ScrapeStatus | null;
+  blockedSignal?: string | null;
 }
 
 /** Review-count that saturates demandIndex at 100 on the log scale. */
@@ -52,12 +61,16 @@ function round(value: number, decimals = 2): number {
 export function emptySnapshot(
   freshness: DataFreshness,
   lastUpdated: string | null,
+  extras?: Pick<SnapshotFromListingsOptions, 'dataSource' | 'scrapeStatus' | 'blockedSignal'>,
 ): MarketSnapshot {
   return {
     comparablePrices: [],
     demandIndex: 0,
     competitionIndex: 0,
     dataFreshness: freshness,
+    dataSource: extras?.dataSource ?? freshness,
+    scrapeStatus: extras?.scrapeStatus ?? null,
+    blockedSignal: extras?.blockedSignal ?? null,
     lastUpdated,
     listingCount: 0,
     unavailable: true,
@@ -75,7 +88,10 @@ export function listingsToSnapshot(
     : listings;
   const prices = scoped.map((listing) => listing.price).filter((price) => price > 0);
   if (prices.length === 0) {
-    return emptySnapshot('unavailable', lastUpdated);
+    return emptySnapshot('unavailable', lastUpdated, {
+      scrapeStatus: options?.scrapeStatus,
+      blockedSignal: options?.blockedSignal,
+    });
   }
 
   // Drop extreme outliers (bundles, wrong-category cards) before the median.
@@ -124,6 +140,9 @@ export function listingsToSnapshot(
     demandIndex: round(demandIndex, 1),
     competitionIndex: round(competitionIndex, 1),
     dataFreshness: freshness,
+    dataSource: options?.dataSource ?? freshness,
+    scrapeStatus: options?.scrapeStatus ?? 'OK',
+    blockedSignal: options?.blockedSignal ?? null,
     lastUpdated,
     listingCount: usable.length,
     unavailable: false,

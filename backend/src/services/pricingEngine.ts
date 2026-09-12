@@ -168,6 +168,13 @@ export function zeroProfitPrice(
 /**
  * Net profit per unit once commission (grossed up for the GST charged on
  * that commission), shipping and manufacturing are paid.
+ *
+ * This formula uses only the seller's currentPrice + manufacturingCost and
+ * the platform's static fee/shipping. It does not read live, cached, or
+ * Gemini comparable listings — so it is safe to show when a platform is
+ * marked unavailable (profitBasis: "seller-fees").
+ *
+ *   profit = currentPrice − (currentPrice × feePercent × 1.18) − shipping − cost
  */
 export function calculateEstimatedProfit(
   sellingPrice: number,
@@ -392,6 +399,7 @@ export function unavailableRecommendation(platform: PlatformConfig): PlatformRec
     estimatedProfit: 0,
     profitMargin: 0,
     profitAvailable: false,
+    profitBasis: 'seller-fees',
     profitError:
       'Profit cannot be calculated until manufacturing cost and selling price are both available.',
     competitionIndex: 0,
@@ -407,6 +415,9 @@ export function unavailableRecommendation(platform: PlatformConfig): PlatformRec
     lossRiskAvoided: false,
     unavailable: true,
     dataFreshness: 'unavailable',
+    dataSource: 'unavailable',
+    scrapeStatus: null,
+    blockedSignal: null,
     lastUpdated: null,
     listingCount: 0,
   };
@@ -447,8 +458,12 @@ export function analyzePlatform(
     stub.estimatedProfit = round(sellerProfit);
     stub.profitMargin = round(sellerMargin, 4);
     stub.profitAvailable = true;
+    stub.profitBasis = 'seller-fees';
     stub.profitError = null;
     stub.lastUpdated = snapshot.lastUpdated;
+    stub.dataSource = snapshot.dataSource ?? 'unavailable';
+    stub.scrapeStatus = snapshot.scrapeStatus ?? null;
+    stub.blockedSignal = snapshot.blockedSignal ?? null;
     stub.explanation =
       'Live market data is temporarily unavailable for ' +
       platform.name +
@@ -519,6 +534,7 @@ export function analyzePlatform(
     estimatedProfit: round(estimatedProfit),
     profitMargin: round(profitMargin, 4),
     profitAvailable: true,
+    profitBasis: 'market-and-fees',
     profitError: null,
     competitionIndex: snapshot.competitionIndex,
     demandIndex: snapshot.demandIndex,
@@ -547,6 +563,9 @@ export function analyzePlatform(
     lossRiskAvoided,
     unavailable: false,
     dataFreshness: snapshot.dataFreshness,
+    dataSource: snapshot.dataSource ?? snapshot.dataFreshness,
+    scrapeStatus: snapshot.scrapeStatus ?? 'OK',
+    blockedSignal: snapshot.blockedSignal ?? null,
     lastUpdated: snapshot.lastUpdated,
     listingCount: snapshot.listingCount,
   };
@@ -578,6 +597,8 @@ export function analyzePricing(
           demandIndex: 0,
           competitionIndex: 0,
           dataFreshness: 'unavailable',
+          dataSource: 'unavailable',
+          scrapeStatus: null,
           lastUpdated: null,
           listingCount: 0,
           unavailable: true,

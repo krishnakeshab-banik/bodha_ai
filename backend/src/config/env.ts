@@ -88,7 +88,7 @@ export const env = {
   elevenLabsToolSecret: process.env.ELEVENLABS_TOOL_SECRET ?? '',
   /** How long a scrape is reused before we hit the marketplace again. */
   cacheTtlHours: readNumber('CACHE_TTL_HOURS', 3),
-  scrapeTimeoutMs: readNumber('SCRAPE_TIMEOUT_MS', 25000),
+  scrapeTimeoutMs: readNumber('SCRAPE_TIMEOUT_MS', 35000),
   scrapeMaxResults: Math.min(20, Math.max(8, Math.round(readNumber('SCRAPE_MAX_RESULTS', 20)))),
   scrapeHeadless: readBoolean('SCRAPE_HEADLESS', true),
   scrapeUserAgent:

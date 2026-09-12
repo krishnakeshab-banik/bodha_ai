@@ -15,12 +15,12 @@
 import { env } from '../../config/env.js';
 import type { ComparableListing } from '../../types/index.js';
 import { ScraperError } from './errors.js';
-import { absoluteUrl, parseCount, parseInr, parseRating } from './parse.js';
+import { listingsFromFlipkartRows } from './flipkartParse.js';
 import { runSearchPage } from './runSearchPage.js';
 import type { MarketplaceScraper } from './types.js';
 
 const ORIGIN = 'https://www.flipkart.com';
-const CARD = 'div[data-id]';
+const CARD = 'div[data-id], a[href*="/p/"]';
 
 function buildSearchUrl(query: string): { url: string; pathWithQuery: string } {
   const pathWithQuery = '/search?q=' + encodeURIComponent(query);
@@ -36,6 +36,7 @@ export class FlipkartScraper implements MarketplaceScraper {
     const { url, pathWithQuery } = buildSearchUrl(query);
 
     await runSearchPage({
+      platformId: 'flipkart',
       platformName: 'Flipkart',
       origin: ORIGIN,
       url,
@@ -49,8 +50,21 @@ export class FlipkartScraper implements MarketplaceScraper {
           (cards, cap) => {
             return cards.slice(0, cap).map((card) => {
               const img = card.querySelector('img[alt]') as HTMLImageElement | null;
-              const title = (img?.alt ?? '').replace(/\s+/g, ' ').trim();
-              const link = card.querySelector('a[href*="/p/"]') as HTMLAnchorElement | null;
+              const nestedLink = card.querySelector(
+                'a[href*="/p/"], a[href*="/itm"], a[href*="/product/"]',
+              ) as HTMLAnchorElement | null;
+              const selfLink = card.matches('a[href]') ? (card as HTMLAnchorElement) : null;
+              const link = nestedLink ?? selfLink;
+              const heading = card.querySelector('a[title], div[title], span[title]');
+              const title = (
+                img?.alt ||
+                heading?.getAttribute('title') ||
+                link?.getAttribute('title') ||
+                link?.textContent ||
+                ''
+              )
+                .replace(/\s+/g, ' ')
+                .trim();
               const href = link?.getAttribute('href') ?? '';
               const text = (card.textContent ?? '').replace(/\s+/g, ' ').trim();
               return { title, href, text, thumbnail: img?.src ?? '' };
@@ -59,23 +73,8 @@ export class FlipkartScraper implements MarketplaceScraper {
           max,
         );
 
-        for (const row of raw) {
-          if (!row.title || !row.href) continue;
-          const priceMatch = row.text.match(/₹\s*[\d,]+/);
-          const price = parseInr(priceMatch?.[0] ?? '');
-          if (!price) continue;
-
-          const ratingReviews = row.text.match(/(\d(?:\.\d)?)\s*\(([\d,]+)\)/);
-          listings.push({
-            title: row.title,
-            price,
-            rating: parseRating(ratingReviews?.[1]) ?? undefined,
-            reviewCount: parseCount(ratingReviews?.[2]) ?? undefined,
-            url: absoluteUrl(row.href, origin),
-            thumbnail: row.thumbnail || undefined,
-          });
-        }
-
+        const parsed = listingsFromFlipkartRows(raw, origin);
+        listings.push(...parsed);
         return listings.length;
       },
     });

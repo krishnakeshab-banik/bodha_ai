@@ -144,7 +144,8 @@ describe('POST /api/products/analyze', () => {
         priceAction: expect.stringMatching(/^(increase|decrease|hold)$/),
         explanation: expect.any(String),
         lossRiskAvoided: expect.any(Boolean),
-        dataFreshness: expect.stringMatching(/^(live|cached|unavailable)$/),
+        dataFreshness: expect.stringMatching(/^(live|cached|gemini|unavailable)$/),
+        dataSource: expect.stringMatching(/^(live|cached|gemini|unavailable)$/),
         unavailable: expect.any(Boolean),
       });
       expect(platform.marketPriceRange).toHaveLength(2);

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 
+import { ConfidenceBadge } from './ConfidenceBadge';
 import { DataFreshnessBadge } from './DataFreshnessBadge';
 import type { AnalysisResponse, PlatformRecommendation } from '../../types';
 import { formatCurrency, formatDateTime, PLATFORM_COLORS } from '../../utils/format';
@@ -67,11 +68,14 @@ export function RecommendationBanner({ analysis, winner }: RecommendationBannerP
             <p className="mt-4 max-w-2xl text-base leading-relaxed text-white/70">
               {winner.unavailable ? t('report.unavailableBody') : summary}
             </p>
-            <div className="mt-4">
+            <div className="mt-4 space-y-2">
               <DataFreshnessBadge
-                freshness={winner.dataFreshness ?? 'unavailable'}
+                freshness={winner.dataSource ?? winner.dataFreshness ?? 'unavailable'}
                 lastUpdated={winner.lastUpdated}
+                platformName={winner.name}
+                scrapeStatus={winner.scrapeStatus}
               />
+              {winner.confidence && <ConfidenceBadge confidence={winner.confidence} onDark />}
             </div>
           </div>
 

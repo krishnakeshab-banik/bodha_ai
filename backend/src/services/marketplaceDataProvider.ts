@@ -2,19 +2,28 @@
  * MarketplaceDataProvider — the only module the analysis service goes through
  * for comparable-listing numbers. It never reads hardcoded prices.
  *
- * Flow per platform:
- *   fresh cache (< CACHE_TTL_HOURS)  → use it, dataFreshness: "cached"
- *   otherwise scrape live            → store, dataFreshness: "live"
- *   scrape fails + stale cache       → use stale, dataFreshness: "cached"
+ * Flow per platform (live-first):
+ *   scrape live                      → store, dataSource: "live"
+ *   Amazon BLOCKED                   → Gemini grounding, else cache, else unavailable
+ *   other scrape fails + any cache   → dataSource: "cached"
  *   scrape fails + no cache          → unavailable
  *
  * demandIndex / competitionIndex derivation is documented in snapshotFromListings.ts.
  */
 
-import type { CategoryId, ComparableListing, MarketSnapshot, PlatformId } from '../types/index.js';
+import type {
+  CategoryId,
+  ComparableListing,
+  DataSource,
+  MarketSnapshot,
+  PlatformId,
+  ScrapeStatus,
+} from '../types/index.js';
+import { agentLog, agentWarn } from './agentLog.js';
+import { getAmazonAgent } from './amazonAgent.js';
 import { readCache, writeCache } from './cacheService.js';
-import { filterRelevantListings, hasSpecificProductIdentity } from './listingRelevance.js';
-import { isScraperError } from './scraper/errors.js';
+import { filterRelevantListings } from './listingRelevance.js';
+import { isScraperError, scrapeStatusFromError } from './scraper/errors.js';
 import { hasLiveScraper, scrapeComparableListings } from './scraper/scraperService.js';
 import { emptySnapshot, listingsToSnapshot } from './snapshotFromListings.js';
 
@@ -48,19 +57,76 @@ function prepareListings(
 
 function toSnapshot(
   listings: ComparableListing[],
-  freshness: 'live' | 'cached',
+  freshness: DataSource,
   lastUpdated: string | null,
   title: string,
   currentPrice?: number,
+  extras?: { scrapeStatus?: ScrapeStatus | null; blockedSignal?: string | null },
 ): { snapshot: MarketSnapshot; listings: ComparableListing[] } {
   const relevant = prepareListings(listings, title, currentPrice);
   return {
     snapshot: listingsToSnapshot(relevant, freshness, lastUpdated, {
       queryTitle: title,
       anchorPrice: currentPrice,
+      dataSource: freshness,
+      scrapeStatus: extras?.scrapeStatus,
+      blockedSignal: extras?.blockedSignal,
     }),
     listings: relevant,
   };
+}
+
+async function dataForAmazon(
+  title: string,
+  category: CategoryId,
+  currentPrice?: number,
+): Promise<{ snapshot: MarketSnapshot; listings: ComparableListing[] }> {
+  agentLog('amazon', 'request start', { title, category, currentPrice });
+  const cached = readCache('amazon', category, title);
+
+  const result = await getAmazonAgent().search(title, category);
+  if (result.dataSource === 'live' && result.listings.length > 0) {
+    const fetchedAt = new Date().toISOString();
+    writeCache('amazon', category, title, result.listings, fetchedAt);
+    const prepared = toSnapshot(result.listings, 'live', fetchedAt, title, currentPrice, {
+      scrapeStatus: result.scrapeStatus,
+      blockedSignal: result.blockedSignal,
+    });
+    agentLog('amazon', 'provider snapshot', {
+      dataSource: 'live',
+      listings: prepared.listings.length,
+      raw: result.listings.length,
+    });
+    return prepared;
+  }
+
+  if (result.listings.length === 0) {
+    agentWarn('amazon', 'provider snapshot', {
+      dataSource: 'unavailable',
+      scrapeStatus: result.scrapeStatus,
+      signal: result.blockedSignal,
+    });
+    return {
+      snapshot: emptySnapshot('unavailable', cached?.fetchedAt ?? null, {
+        dataSource: 'unavailable',
+        scrapeStatus: result.scrapeStatus,
+        blockedSignal: result.blockedSignal,
+      }),
+      listings: [],
+    };
+  }
+
+  const fetchedAt =
+    result.dataSource === 'cached' ? (cached?.fetchedAt ?? new Date().toISOString()) : new Date().toISOString();
+  agentLog('amazon', 'provider snapshot', {
+    dataSource: result.dataSource,
+    scrapeStatus: result.scrapeStatus,
+    listings: result.listings.length,
+  });
+  return toSnapshot(result.listings, result.dataSource, fetchedAt, title, currentPrice, {
+    scrapeStatus: result.scrapeStatus,
+    blockedSignal: result.blockedSignal,
+  });
 }
 
 async function dataForPlatform(
@@ -69,60 +135,73 @@ async function dataForPlatform(
   category: CategoryId,
   currentPrice?: number,
 ): Promise<{ snapshot: MarketSnapshot; listings: ComparableListing[] }> {
+  if (platformId === 'amazon') {
+    return dataForAmazon(title, category, currentPrice);
+  }
+
+  agentLog(platformId, 'request start', { title, category, currentPrice });
+
   if (!hasLiveScraper(platformId)) {
+    agentLog(platformId, 'final status', {
+      dataSource: 'unavailable',
+      reason: 'no-live-scraper',
+    });
     return { snapshot: emptySnapshot('unavailable', null), listings: [] };
   }
 
   const cached = readCache(platformId, category, title);
-  if (cached?.fresh) {
-    const prepared = toSnapshot(cached.listings, 'cached', cached.fetchedAt, title, currentPrice);
-    const cacheIsJunk =
-      hasSpecificProductIdentity(title) &&
-      cached.listings.length > 0 &&
-      prepared.listings.length === 0;
-    if (!cacheIsJunk) {
-      console.log(
-        '[bodha-ai] cache HIT (fresh) ' +
-          platformId +
-          ' (' +
-          prepared.listings.length +
-          ' matched / ' +
-          cached.listings.length +
-          ' raw)',
-      );
-      return prepared;
-    }
-    console.log(
-      '[bodha-ai] cache HIT but 0 matched listings for "' + title + '" — re-scraping ' + platformId,
-    );
-  }
 
   try {
-    console.log('[bodha-ai] scraping LIVE ' + platformId + ' for "' + title + '"');
+    agentLog(platformId, 'live attempt start', { title });
     const listings = await scrapeComparableListings(platformId, title, category);
     const fetchedAt = new Date().toISOString();
     writeCache(platformId, category, title, listings, fetchedAt);
-    const prepared = toSnapshot(listings, 'live', fetchedAt, title, currentPrice);
-    console.log(
-      '[bodha-ai] scrape OK ' +
-        platformId +
-        ' — ' +
-        prepared.listings.length +
-        ' matched / ' +
-        listings.length +
-        ' raw',
-    );
+    const prepared = toSnapshot(listings, 'live', fetchedAt, title, currentPrice, {
+      scrapeStatus: 'OK',
+    });
+    agentLog(platformId, 'live attempt result', {
+      status: 'OK',
+      listings: prepared.listings.length,
+      raw: listings.length,
+    });
+    agentLog(platformId, 'final status', {
+      dataSource: 'live',
+      scrapeStatus: 'OK',
+      listings: prepared.listings.length,
+    });
     return prepared;
   } catch (error) {
     const reason = isScraperError(error) ? error.code + ': ' + error.message : String(error);
-    console.warn('[bodha-ai] scrape FAIL ' + platformId + ' — ' + reason);
+    const scrapeStatus = scrapeStatusFromError(error);
+    const blockedSignal = isScraperError(error) ? (error.signal ?? null) : null;
+    agentWarn(platformId, 'live attempt result', {
+      status: scrapeStatus ?? 'unknown',
+      signal: blockedSignal,
+      reason,
+    });
 
     if (cached) {
-      console.log('[bodha-ai] cache FALLBACK (stale) ' + platformId);
-      return toSnapshot(cached.listings, 'cached', cached.fetchedAt, title, currentPrice);
+      agentLog(platformId, 'fallback triggered', { next: 'cache', fetchedAt: cached.fetchedAt });
+      agentLog(platformId, 'final status', {
+        dataSource: 'cached',
+        scrapeStatus,
+        listings: cached.listings.length,
+      });
+      return toSnapshot(cached.listings, 'cached', cached.fetchedAt, title, currentPrice, {
+        scrapeStatus,
+        blockedSignal,
+      });
     }
 
-    return { snapshot: emptySnapshot('unavailable', null), listings: [] };
+    agentWarn(platformId, 'final status', {
+      dataSource: 'unavailable',
+      scrapeStatus,
+      signal: blockedSignal,
+    });
+    return {
+      snapshot: emptySnapshot('unavailable', null, { scrapeStatus, blockedSignal }),
+      listings: [],
+    };
   }
 }
 
@@ -130,13 +209,30 @@ async function dataForPlatform(
 export async function getMarketData(request: SnapshotRequest): Promise<MarketData> {
   const entries = await Promise.all(
     request.platforms.map(async (platformId) => {
-      const result = await dataForPlatform(
-        platformId,
-        request.title,
-        request.category,
-        request.currentPrice,
-      );
-      return [platformId, result] as const;
+      try {
+        const result = await dataForPlatform(
+          platformId,
+          request.title,
+          request.category,
+          request.currentPrice,
+        );
+        return [platformId, result] as const;
+      } catch (error) {
+        // One agent's unexpected throw must not mark sibling platforms unavailable.
+        agentWarn(platformId, 'isolated failure', {
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return [
+          platformId,
+          {
+            snapshot: emptySnapshot('unavailable', null, {
+              dataSource: 'unavailable',
+              scrapeStatus: scrapeStatusFromError(error),
+            }),
+            listings: [] as ComparableListing[],
+          },
+        ] as const;
+      }
     }),
   );
 

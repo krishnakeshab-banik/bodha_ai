@@ -21,7 +21,8 @@ import { runSearchPage } from './runSearchPage.js';
 import type { MarketplaceScraper } from './types.js';
 
 const ORIGIN = 'https://www.amazon.in';
-const CARD = '[data-component-type="s-search-result"]';
+const CARD =
+  '[data-component-type="s-search-result"], div.s-result-item[data-asin]:not([data-asin=""])';
 
 function buildSearchUrl(query: string): { url: string; pathWithQuery: string } {
   const pathWithQuery = '/s?k=' + encodeURIComponent(query);
@@ -37,6 +38,7 @@ export class AmazonScraper implements MarketplaceScraper {
     const { url, pathWithQuery } = buildSearchUrl(query);
 
     await runSearchPage({
+      platformId: 'amazon',
       platformName: 'Amazon.in',
       origin: ORIGIN,
       url,
@@ -50,7 +52,11 @@ export class AmazonScraper implements MarketplaceScraper {
           (cards, cap) => {
             return cards.slice(0, cap).map((card) => {
               const asin = card.getAttribute('data-asin') ?? '';
-              const titleEl = card.querySelector('h2 span');
+              const titleEl =
+                card.querySelector('h2 a span') ??
+                card.querySelector('h2 span') ??
+                card.querySelector('h2') ??
+                card.querySelector('[data-cy="title-recipe-title"]');
               const title = (titleEl?.textContent ?? '').replace(/\s+/g, ' ').trim();
               const priceOffscreen = card.querySelector('.a-price .a-offscreen');
               const priceWhole = card.querySelector('.a-price-whole');
@@ -66,7 +72,9 @@ export class AmazonScraper implements MarketplaceScraper {
               const reviewText =
                 (reviewEl?.textContent ?? reviewEl?.getAttribute('aria-label') ?? '').trim() ||
                 ((card.textContent ?? '').match(/\(([\d.,]+\s*[KkMm]?)\)/)?.[1] ?? '');
-              const link = card.querySelector('h2 a') as HTMLAnchorElement | null;
+              const link =
+                (card.querySelector('h2 a') as HTMLAnchorElement | null) ??
+                (card.querySelector('a.a-link-normal[href*="/dp/"]') as HTMLAnchorElement | null);
               const href = link?.getAttribute('href') ?? '';
               const img = card.querySelector('img') as HTMLImageElement | null;
               const thumbnail = img?.getAttribute('src') || img?.getAttribute('data-src') || '';

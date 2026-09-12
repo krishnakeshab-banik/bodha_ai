@@ -15,12 +15,15 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:live-scrape": "vitest run src/tests/scrape.live.test.ts",
+    "playwright:install": "playwright install chromium",
+    "postinstall": "playwright install chromium || exit 0",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\""
   },
   "dependencies": {
+    "bodha-ai": "file:..",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "google-trends-api": "^4.9.2",

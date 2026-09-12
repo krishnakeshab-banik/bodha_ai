@@ -1,8 +1,14 @@
 /**
  * Review snippets from competitor product pages + theme-level sentiment.
+ *
+ * Collection is attempted per platform against that run's real comparable
+ * listing URLs. Gemini is called only when the real snippet count meets
+ * MIN_REVIEW_SNIPPETS. There is no hardcoded praise/complaint fallback —
+ * insufficient or failed collection yields an honest empty state.
  */
 
 import type { ComparableListing, PlatformId, ReviewSentiment, UiLanguage } from '../types/index.js';
+import { agentLog, agentWarn } from './agentLog.js';
 import { newScrapeContext } from './scraper/browserPool.js';
 import { enqueueForPlatform } from './scraper/queue.js';
 import { generateJson, hasGeminiKey } from './geminiService.js';
@@ -13,20 +19,58 @@ const LANGUAGE_NAME: Record<UiLanguage, string> = {
   ta: 'Tamil',
 };
 
+/** Gemini runs only when at least this many distinct real snippets exist. */
+export const MIN_REVIEW_SNIPPETS = 4;
+
 const REVIEW_SELECTORS = [
+  '[data-hook="review-body"] span',
   '[data-hook="review-body"]',
   '[data-hook="review-collapsed"]',
+  '[data-hook="cr-original-review-content"]',
+  '.review-text-content',
+  '.cr-original-review-text',
   '._11pzQk',
   '.t-ZTKy',
+  '.ZmyHeo',
+  'div.ZmyHeo',
   '.user-review',
+  '.user-review-txt',
   '.review-text',
   '.reviewText',
-  '[class*="review"] p',
+  '.cust-revw',
+  '[class*="user-review"]',
+  '[class*="review-text"]',
 ];
 
-const PAGE_TIMEOUT_MS = 10_000;
-const TOTAL_BUDGET_MS = 22_000;
+const PAGE_TIMEOUT_MS = 15_000;
+const WAIT_FOR_REVIEW_MS = 7_000;
+const TOTAL_BUDGET_MS = 40_000;
+const MAX_URLS_PER_PLATFORM = 4;
 const MAX_SNIPPETS = 24;
+
+export function usableSnippetCount(snippets: string[]): number {
+  return uniqueSnippets(snippets).filter((text) => text.length >= 20).length;
+}
+
+export function meetsReviewThreshold(snippetCount: number): boolean {
+  return snippetCount >= MIN_REVIEW_SNIPPETS;
+}
+
+/** Prefer the dedicated reviews URL so collection is not stuck on a PDP hero. */
+export function toReviewPageUrl(platformId: PlatformId, url: string): string {
+  if (!url) return url;
+
+  if (platformId === 'amazon') {
+    const asin = url.match(/\/(?:dp|gp\/product|product-reviews)\/([A-Z0-9]{10})/i)?.[1];
+    if (asin) return 'https://www.amazon.in/product-reviews/' + asin;
+  }
+
+  if (platformId === 'flipkart' && /\/p\//i.test(url)) {
+    return url.replace(/\/p\//i, '/product-reviews/');
+  }
+
+  return url;
+}
 
 export async function collectReviewSnippets(
   platformId: PlatformId,
@@ -34,24 +78,54 @@ export async function collectReviewSnippets(
 ): Promise<string[]> {
   const urls = listings
     .map((listing) => listing.url)
-    .filter(Boolean)
-    .slice(0, 5);
-  if (urls.length === 0) return [];
+    .filter((url): url is string => Boolean(url))
+    .slice(0, MAX_URLS_PER_PLATFORM);
+
+  agentLog(platformId, 'review collection start', {
+    listingCount: listings.length,
+    urlCount: urls.length,
+    sampleTitles: listings.slice(0, 3).map((listing) => listing.title),
+    fromCards: listings.flatMap((listing) => listing.reviewSnippets ?? []).length,
+  });
+
+  if (urls.length === 0) {
+    agentLog(platformId, 'review collection skipped', {
+      reason: 'no listing urls on this run',
+      snippetCount: 0,
+    });
+    return [];
+  }
 
   const started = Date.now();
   const snippets: string[] = [];
 
   for (const url of urls) {
     if (Date.now() - started > TOTAL_BUDGET_MS || snippets.length >= MAX_SNIPPETS) break;
+    const reviewUrl = toReviewPageUrl(platformId, url);
     try {
-      const found = await enqueueForPlatform(platformId, () => scrapeReviewPage(url));
+      const found = await enqueueForPlatform(platformId, () => scrapeReviewPage(reviewUrl));
       snippets.push(...found);
+      agentLog(platformId, 'review page', {
+        url: reviewUrl,
+        sourceProductUrl: url,
+        snippetCount: found.length,
+        samples: found.slice(0, 2),
+      });
     } catch (error) {
-      console.warn('[bodha-ai] review scrape skipped:', url, error);
+      agentWarn(platformId, 'review scrape skipped', {
+        url: reviewUrl,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
-  return uniqueSnippets(snippets).slice(0, MAX_SNIPPETS);
+  const unique = uniqueSnippets(snippets).slice(0, MAX_SNIPPETS);
+  agentLog(platformId, 'review collection done', {
+    rawSnippetCount: snippets.length,
+    uniqueSnippetCount: unique.length,
+    samples: unique.slice(0, 3),
+  });
+  return unique;
 }
 
 async function scrapeReviewPage(url: string): Promise<string[]> {
@@ -59,6 +133,15 @@ async function scrapeReviewPage(url: string): Promise<string[]> {
   const page = await context.newPage();
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: PAGE_TIMEOUT_MS });
+    await page.locator('#sp-cc-accept').click({ timeout: 1500 }).catch(() => undefined);
+    await page
+      .waitForSelector(REVIEW_SELECTORS.join(', '), { timeout: WAIT_FOR_REVIEW_MS })
+      .catch(() => undefined);
+    await page.evaluate(() => {
+      const view = (globalThis as { window?: { scrollBy: (x: number, y: number) => void } }).window;
+      view?.scrollBy(0, 900);
+    });
+
     const texts = await page.evaluate((selectors: string[]) => {
       const out: string[] = [];
       const root = (
@@ -72,7 +155,7 @@ async function scrapeReviewPage(url: string): Promise<string[]> {
       for (const selector of selectors) {
         for (const node of Array.from(root.querySelectorAll(selector))) {
           const text = (node.textContent ?? '').replace(/\s+/g, ' ').trim();
-          if (text.length >= 24 && text.length <= 400) out.push(text);
+          if (text.length >= 20 && text.length <= 400) out.push(text);
         }
       }
       return out;
@@ -88,12 +171,32 @@ export async function analyzeReviewSentiment(
   language: UiLanguage,
 ): Promise<ReviewSentiment> {
   const usable = uniqueSnippets(snippets).filter((text) => text.length >= 20);
-  if (usable.length < 3) {
+  const proceedToGemini = meetsReviewThreshold(usable.length);
+
+  console.log(
+    '[bodha-ai ' +
+      new Date().toISOString() +
+      '] review threshold check ' +
+      JSON.stringify({
+        uniqueSnippetCount: usable.length,
+        minimum: MIN_REVIEW_SNIPPETS,
+        proceedToGemini,
+        samples: usable.slice(0, 3),
+      }),
+  );
+
+  if (!proceedToGemini) {
     return { available: false, topPraises: [], topComplaints: [] };
   }
 
   if (!hasGeminiKey()) {
-    return ruleThemes(usable, language);
+    console.log(
+      '[bodha-ai ' +
+        new Date().toISOString() +
+        '] review Gemini skipped ' +
+        JSON.stringify({ reason: 'GEMINI_API_KEY missing', uniqueSnippetCount: usable.length }),
+    );
+    return { available: false, topPraises: [], topComplaints: [] };
   }
 
   try {
@@ -101,6 +204,7 @@ export async function analyzeReviewSentiment(
       [
         'Summarise buyer review themes for an Indian marketplace seller.',
         'Write short theme phrases in ' + LANGUAGE_NAME[language] + ' (2-5 words each).',
+        'Use ONLY the review snippets below. Do not invent themes that are not supported by them.',
         'Do not quote full reviews. No names, no order IDs.',
         'Return JSON: { topPraises: string[3-6], topComplaints: string[3-6] }',
         'Reviews:',
@@ -110,82 +214,26 @@ export async function analyzeReviewSentiment(
 
     const praises = cleanThemes(payload.topPraises);
     const complaints = cleanThemes(payload.topComplaints);
+    console.log(
+      '[bodha-ai ' +
+        new Date().toISOString() +
+        '] review Gemini result ' +
+        JSON.stringify({
+          uniqueSnippetCount: usable.length,
+          praiseCount: praises.length,
+          complaintCount: complaints.length,
+          topPraises: praises,
+          topComplaints: complaints,
+        }),
+    );
     if (praises.length === 0 && complaints.length === 0) {
       return { available: false, topPraises: [], topComplaints: [] };
     }
     return { available: true, topPraises: praises, topComplaints: complaints };
   } catch (error) {
     console.warn('[bodha-ai] review sentiment Gemini failed:', error);
-    return ruleThemes(usable, language);
-  }
-}
-
-function ruleThemes(snippets: string[], language: UiLanguage): ReviewSentiment {
-  const blob = snippets.join(' ').toLowerCase();
-  const praiseKeys = ['quality', 'fast', 'value', 'durable', 'fit', 'battery', 'packaging'];
-  const complaintKeys = ['late', 'broken', 'small', 'cheap', 'fake', 'slow', 'damage'];
-  const praises = praiseKeys.filter((word) => blob.includes(word)).slice(0, 4);
-  const complaints = complaintKeys.filter((word) => blob.includes(word)).slice(0, 4);
-  if (praises.length === 0 && complaints.length === 0) {
     return { available: false, topPraises: [], topComplaints: [] };
   }
-
-  const labels: Record<UiLanguage, Record<string, string>> = {
-    en: {
-      quality: 'Build quality',
-      fast: 'Fast delivery',
-      value: 'Value for money',
-      durable: 'Durability',
-      fit: 'Fit / sizing',
-      battery: 'Battery life',
-      packaging: 'Packaging',
-      late: 'Late delivery',
-      broken: 'Arrived damaged',
-      small: 'Sizing runs small',
-      cheap: 'Feels cheap',
-      fake: 'Authenticity doubts',
-      slow: 'Slow charging / performance',
-      damage: 'Packaging damage',
-    },
-    hi: {
-      quality: 'बनावट',
-      fast: 'तेज़ डिलीवरी',
-      value: 'कीमत के मुताबिक',
-      durable: 'टिकाऊपन',
-      fit: 'फिट / साइज़',
-      battery: 'बैटरी लाइफ',
-      packaging: 'पैकिंग',
-      late: 'देर से डिलीवरी',
-      broken: 'टूटा हुआ मिला',
-      small: 'साइज़ छोटा',
-      cheap: 'सस्ता लगता है',
-      fake: 'असली होने की शंका',
-      slow: 'धीमा प्रदर्शन',
-      damage: 'पैकिंग खराब',
-    },
-    ta: {
-      quality: 'கட்டமைப்பு தரம்',
-      fast: 'விரைவு டெலிவரி',
-      value: 'விலைக்கு மதிப்பு',
-      durable: 'நீடித்து நிற்றல்',
-      fit: 'பொருத்தம்',
-      battery: 'பேட்டரி ஆயுள்',
-      packaging: 'பேக்கிங்',
-      late: 'தாமத டெலிவரி',
-      broken: 'உடைந்து வந்தது',
-      small: 'அளவு சிறியது',
-      cheap: 'மலிவாகத் தெரிகிறது',
-      fake: 'உண்மை சந்தேகம்',
-      slow: 'மெதுவான செயல்',
-      damage: 'பேக்கிங் சேதம்',
-    },
-  };
-
-  return {
-    available: true,
-    topPraises: praises.map((key) => labels[language][key] ?? key),
-    topComplaints: complaints.map((key) => labels[language][key] ?? key),
-  };
 }
 
 function cleanThemes(values: string[] | undefined): string[] {

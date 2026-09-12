@@ -55,7 +55,10 @@ interface GeminiRequestPart {
   inline_data?: { mime_type: string; data: string };
 }
 
-async function generateContent(parts: GeminiRequestPart[]): Promise<string> {
+async function generateContent(
+  parts: GeminiRequestPart[],
+  options?: { tools?: unknown[]; maxOutputTokens?: number },
+): Promise<string> {
   if (!env.geminiApiKey) {
     throw new GeminiError('GEMINI_API_KEY is not configured');
   }
@@ -70,7 +73,11 @@ async function generateContent(parts: GeminiRequestPart[]): Promise<string> {
       signal: controller.signal,
       body: JSON.stringify({
         contents: [{ parts }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: 2048 },
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: options?.maxOutputTokens ?? 2048,
+        },
+        ...(options?.tools ? { tools: options.tools } : {}),
       }),
     });
 
@@ -114,6 +121,30 @@ export async function generateJson<T>(prompt: string): Promise<T> {
     prompt + '\n\nReturn ONLY valid JSON. Do not wrap it in commentary.',
   );
   return parseJsonObject<T>(raw);
+}
+
+/**
+ * Gemini + Google Search grounding. Used as the live-scrape fallback when a
+ * marketplace (Amazon) returns a bot-check / download interstitial.
+ *
+ * If the model rejects the search tool, we retry as a plain generateJson call
+ * so the fallback is still a real Gemini response, not a stub.
+ */
+export async function generateGroundedJson<T>(prompt: string): Promise<T> {
+  const instructed = prompt + '\n\nReturn ONLY valid JSON. Do not wrap it in commentary.';
+  try {
+    const raw = await generateContent([{ text: instructed }], {
+      tools: [{ google_search: {} }],
+      maxOutputTokens: 4096,
+    });
+    return parseJsonObject<T>(raw);
+  } catch (error) {
+    console.warn(
+      '[bodha-ai] Gemini Google Search grounding failed, retrying without the search tool:',
+      error instanceof Error ? error.message : error,
+    );
+    return generateJson<T>(prompt);
+  }
 }
 
 export function parseJsonObject<T>(raw: string): T {

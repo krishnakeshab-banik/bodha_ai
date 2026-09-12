@@ -12,7 +12,11 @@ export type IndexLevel = 'Low' | 'Medium' | 'High';
 
 export type PriceAction = 'increase' | 'decrease' | 'hold';
 
-export type DataFreshness = 'live' | 'cached' | 'unavailable';
+export type DataFreshness = 'live' | 'cached' | 'gemini' | 'unavailable';
+
+export type DataSource = DataFreshness;
+
+export type ScrapeStatus = 'OK' | 'BLOCKED' | 'TIMEOUT' | 'NOT_FOUND';
 
 export interface PlatformRecommendation {
   id: PlatformId;
@@ -28,6 +32,7 @@ export interface PlatformRecommendation {
   profitMargin: number;
   profitAvailable?: boolean;
   profitError?: string | null;
+  profitBasis?: 'seller-fees' | 'market-and-fees';
   competitionIndex: number;
   demandIndex: number;
   competition: IndexLevel;
@@ -38,8 +43,12 @@ export interface PlatformRecommendation {
   lossRiskAvoided: boolean;
   unavailable: boolean;
   dataFreshness: DataFreshness;
+  dataSource?: DataSource;
+  scrapeStatus?: ScrapeStatus | null;
+  blockedSignal?: string | null;
   lastUpdated: string | null;
   listingCount: number;
+  confidence?: DataConfidence;
 }
 
 export interface OptimizedListing {
@@ -65,9 +74,28 @@ export interface ReviewSentiment {
   topComplaints: string[];
 }
 
+export type TitleMatchQuality = 'exact' | 'close' | 'category';
+
+export interface DataConfidence {
+  level: IndexLevel;
+  listingCount: number;
+  titleMatch: TitleMatchQuality;
+  freshness: DataFreshness;
+}
+
+export interface SeasonalTiming {
+  available: boolean;
+  patternDetected: boolean;
+  peakMonth: number | null;
+  peakInterest: number | null;
+  medianInterest: number | null;
+  pointCount: number;
+}
+
 export interface RegionalDemand {
   available: boolean;
   states: { state: string; interest: number }[];
+  seasonalTiming?: SeasonalTiming;
 }
 
 export interface ReportInsights {
