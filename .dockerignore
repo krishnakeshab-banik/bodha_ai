@@ -1,0 +1,14 @@
+node_modules
+backend/node_modules
+backend/dist
+frontend
+frontend/node_modules
+android
+native
+.git
+.github
+*.md
+.env
+backend/.env
+frontend/.env
+**/*.apk
