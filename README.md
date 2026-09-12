@@ -386,8 +386,8 @@ Hindi and Tamil — deliberately excluded to keep the project focused.
 
 | Name |
 |---|
+| Krishna Keshab Banik |
 | Sanchit Jaiswal |
-| Krishna Keshab |
 | Chiraag Mutupuri |
 | Sagnik Mitra |
 | Sanjay Kumar Gupta |
