@@ -1,0 +1,43 @@
+
+> bodha-ai@1.0.0 test
+> npm --prefix backend test
+
+
+> bodha-ai-backend@1.0.0 test
+> vitest run
+
+
+ RUN  v2.1.9 D:/Projects/I Project/backend
+
+ ✓ src/tests/listingOptimizer.test.ts > listingOptimizer > runs the documented rule-based stub while no LLM key is configured
+ ✓ src/tests/listingOptimizer.test.ts > listingOptimizer > produces an SEO-shaped title within the marketplace character budget
+ ✓ src/tests/listingOptimizer.test.ts > listingOptimizer > writes a three-part description that names the platform and price
+ ✓ src/tests/listingOptimizer.test.ts > listingOptimizer > returns between 3 and 5 unique keywords
+ ✓ src/tests/listingOptimizer.test.ts > listingOptimizer > still meets the keyword floor for very sparse input
+ ✓ src/tests/listingOptimizer.test.ts > listingOptimizer > is pure - identical input always yields identical output
+ ✓ src/tests/pricingEngine.test.ts > Section 2.4 - required worked examples > case 1: recommends INCREASING a Rs.800 price toward the ~Rs.1000 market rate
+ ✓ src/tests/pricingEngine.test.ts > Section 2.4 - required worked examples > case 2: recommends DECREASING a Rs.1400 price, staying above break-even
+ ✓ src/tests/pricingEngine.test.ts > Section 2.4 - required worked examples > case 3: never recommends below break-even when the market price is too low
+ ✓ src/tests/pricingEngine.test.ts > loss prevention holds across every category and platform > never returns a recommended price below break-even for any combination
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > median handles odd and even length inputs
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > grosses the manufacturing cost up by the commission, then adds shipping
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > computes profit net of commission, shipping and cost
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > weights fit score 40/30/30 across profit, competition and demand
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > normalises profit against the target margin and clamps to 0-100
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > applies a +/-10% dead-band before advising a re-price
+ ✓ src/tests/pricingEngine.test.ts > formula helpers > buckets 0-100 indices into Low / Medium / High
+ ✓ src/tests/pricingEngine.test.ts > analyzePricing input guards > rejects an empty marketplace selection
+ ✓ src/tests/pricingEngine.test.ts > analyzePricing input guards > rejects non-positive money values
+ ✓ src/tests/pricingEngine.test.ts > analyzePricing input guards > reports the marketplace price range from the comparable listings
+ ✓ src/tests/api.test.ts > POST /api/products/analyze > returns the documented response shape and persists the analysis
+ ✓ src/tests/api.test.ts > POST /api/products/analyze > rejects a manufacturing cost above the selling price with a 400
+ ✓ src/tests/api.test.ts > POST /api/products/analyze > rejects an empty marketplace selection with a 400
+ ✓ src/tests/api.test.ts > POST /api/products/analyze > rejects negative money values with a 400
+ ✓ src/tests/api.test.ts > GET /api/products/:id > returns a structured 404 for an unknown product
+ ✓ src/tests/api.test.ts > GET /api/meta > lists the five seeded categories and four marketplaces
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  12:04:20
+   Duration  565ms (transform 123ms, setup 0ms, collect 207ms, tests 214ms, environment 0ms, prepare 302ms)
+

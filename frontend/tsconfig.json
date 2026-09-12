@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noImplicitAny": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@native/*": ["../native/*"],
+      // `../native` sits outside this project, so plain Node-style module
+      // resolution for its bare imports walks up from its OWN folder and
+      // never finds `frontend/node_modules` — only a repo-root install would
+      // satisfy it, which an isolated single-service deploy (Vercel building
+      // this "frontend" service alone) never runs. These force resolution
+      // back into this project's own node_modules, matching what
+      // `vite.config.ts`'s `resolve.modules` already does for the real
+      // runtime bundle.
+      "@capacitor/*": ["./node_modules/@capacitor/*"],
+      "@capacitor-community/*": ["./node_modules/@capacitor-community/*"]
+    }
+  },
+  "include": ["src", "../native"]
+}
